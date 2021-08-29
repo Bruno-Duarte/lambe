@@ -6,10 +6,12 @@ import {
     CREATING_POST,
     POST_CREATED,
 } from './actionTypes';
+import axios from 'axios';
+import { setMessage } from './message';
 
 
 export const addPost = post => {
-    return dispatch => {
+    return (dispatch, getState) => {
         dispatch(creatingPost());
         axios({
             url: 'uploadImage',
@@ -18,10 +20,20 @@ export const addPost = post => {
             data: {
                 image: post.image.base64,
             },
-        }).catch(err => console.log(err)).then(res => {
+        }).catch(err => {
+            dispatch(setMessage({
+                title: 'Erro',
+                text: 'Ocorreu um erro inesperado!',
+            }));
+        }).then(res => {
             post.image = resp.data.imageUrl;
-            axios.post('/posts.json', { ...post })
-                .catch(err => console.log(err))
+            axios.post(`/posts.json?auth=${getState().user.token}`, { ...post })
+                .catch(err => {
+                    dispatch(setMessage({
+                        title: 'Erro',
+                        text: err,
+                    }));
+                })
                 .then(res => {
                     console.log(res.data);
                     dispatch(fetchPosts());
@@ -41,15 +53,25 @@ export const addPost = post => {
 export const addComment = payload => {
     return dispatch => {
         axios.get(`/posts/${payload.postId}.json`)
-            .catch(err => console.log(err))
-            .then(res => {
+            .catch(err => {
+                dispatch(setMessage({
+                    title: 'Erro',
+                    text: 'Ocorreu um erro inesperado!',
+                }));
+            }).then(res => {
                 const comments = res.data.comments || [];
                 comments.push(payload.comment)
-                axios.patch(`/posts/${payload.postId}.json`, { comments })
-                    .catch(err => console.log(err))
-                    .then(res => {
-                        dispatch(fetchPosts());
-                    });
+                axios.patch(
+                    `/posts/${payload.postId}.json?auth=${getState().user.token}`, 
+                    { comments }
+                ).catch(err => {
+                    dispatch(setMessage({
+                        title: 'Erro',
+                        text: 'Ocorreu um erro inesperado!',
+                    }));
+                }).then(res => {
+                    dispatch(fetchPosts());
+                });
             });
     }
     // return {
@@ -68,8 +90,12 @@ export const setPosts = posts => {
 export const fetchPosts = () => {
     return dispatch => {
         axios.get('/posts.json')
-            .catch(err => console.log(err))
-            .then(res => {
+            .catch(err => {
+                dispatch(setMessage({
+                    title: 'Erro',
+                    text: 'Ocorreu um erro inesperado!',
+                }));
+            }).then(res => {
                 const rawPosts = res.data;
                 const posts = [];
                 for (let key in rawPosts) {
